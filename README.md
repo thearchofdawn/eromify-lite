@@ -1,22 +1,34 @@
 # Eromify Lite
 
-A self-hostable AI creator studio inspired by the workflow category of AI influencer/content-generation products.
+Self-hostable AI creator studio for consistent AI personas, image generation and later image-to-video workflows.
 
-## MVP
-- Persona management
-- Structured prompt generation
-- Image generation job API
-- Gallery/job history
-- Provider abstraction for local ComfyUI
-- Supabase-ready data model
-- Pluggable image/video providers
+## Current stage
+- Next.js App Router + TypeScript + Tailwind
+- Persona-aware prompt enrichment
+- Demo provider
+- Real ComfyUI prompt submission
+- ComfyUI job status endpoint
+- Configurable ComfyUI API workflow
+- Aspect-ratio and batch-size patching
 
-## Local development
-1. Copy `.env.example` to `.env.local`.
-2. `npm install`
-3. `npm run dev`
+## Connect your RTX 3060
+Install ComfyUI on the NVIDIA machine and make it reachable at http://127.0.0.1:8188.
 
-The UI works without a configured AI provider using demo mode. Configure ComfyUI later for real generation.
+In ComfyUI, build/import the image workflow and choose Save (API Format). Put that JSON into COMFYUI_WORKFLOW_JSON in .env.local.
 
-## Architecture
-Next.js App Router + TypeScript + Tailwind. AI providers are isolated behind `src/lib/providers`.
+The exact FLUX/identity workflow depends on the nodes/checkpoints installed. Verify every model's license before commercial use.
+
+## Development
+npm install
+npm run dev
+
+Demo mode is enabled by default. Set NEXT_PUBLIC_DEMO_MODE=false after ComfyUI is configured.
+
+## Next milestones
+1. Supabase Auth + persona persistence
+2. Supabase Storage + gallery
+3. Reliable ComfyUI output resolution
+4. Reference-image identity workflow
+5. Image-to-video worker
+6. Workflow canvas
+7. MCP server
