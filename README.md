@@ -16,6 +16,8 @@ Install ComfyUI on the NVIDIA machine and make it reachable at http://127.0.0.1:
 
 In ComfyUI, build/import the image workflow and choose Save (API Format). Put that JSON into COMFYUI_WORKFLOW_JSON in .env.local.
 
+For reference-image workflows, set COMFYUI_INPUT_DIR to the ComfyUI input folder and COMFYUI_REFERENCE_NODE_ID to the LoadImage node ID from the API workflow. Eromify Lite will stage the selected persona reference into that folder before submitting the job.
+
 The exact FLUX/identity workflow depends on the nodes/checkpoints installed. Verify every model's license before commercial use.
 
 ## Development
