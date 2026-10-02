@@ -16,7 +16,6 @@ function patchWorkflow(workflow: ApiWorkflow, input: GenerateInput): ApiWorkflow
     ["CLIPTextEncode","CLIPTextEncodeSDXL","CLIPTextEncodeFlux"].includes(n.class_type)
   );
   if (encoders[0]) encoders[0].inputs.text = input.prompt;
-  if (encoders[1]) encoders[1].inputs.text = "high quality, photorealistic, " + input.prompt;
 
   const sizes: Record<string, number[]> = {"1:1":[768,768],"4:5":[768,960],"9:16":[768,1344],"16:9":[1024,576]};
   const size = sizes[input.aspectRatio];
@@ -31,6 +30,22 @@ function patchWorkflow(workflow: ApiWorkflow, input: GenerateInput): ApiWorkflow
   return cloned;
 }
 
+function outputUrls(history: any): string[] {
+  const outputs: string[] = [];
+  for (const node of Object.values(history?.outputs ?? {}) as any[]) {
+    for (const image of node?.images ?? []) {
+      const base = (process.env.COMFYUI_BASE_URL || "http://127.0.0.1:8188").replace(/\/$/, "");
+      const params = new URLSearchParams({
+        filename: String(image.filename),
+        subfolder: String(image.subfolder || ""),
+        type: String(image.type || "output")
+      });
+      outputs.push(base + "/view?" + params.toString());
+    }
+  }
+  return [...new Set(outputs)];
+}
+
 export const comfyProvider = {
   async generate(input: GenerateInput): Promise<GenerateResult> {
     const base = (process.env.COMFYUI_BASE_URL || "http://127.0.0.1:8188").replace(/\/$/, "");
@@ -43,10 +58,20 @@ export const comfyProvider = {
     if (!res.ok || !body.prompt_id) throw new Error(body.error || ("ComfyUI prompt failed: " + res.status));
     return {jobId:body.prompt_id, provider:"comfyui", status:"queued", outputs:[]};
   },
-  async status(jobId:string) {
+
+  async status(jobId:string): Promise<GenerateResult> {
     const base=(process.env.COMFYUI_BASE_URL || "http://127.0.0.1:8188").replace(/\/$/,"");
     const res=await fetch(base+"/history/"+encodeURIComponent(jobId),{cache:"no-store"});
     if(!res.ok) throw new Error("ComfyUI history failed: "+res.status);
-    return res.json();
+    const data=await res.json();
+    const history=data?.[jobId];
+    if(!history) return {jobId,provider:"comfyui",status:"running",outputs:[]};
+    const failed = Array.isArray(history?.status?.messages) && history.status.messages.some((m:any[]) => String(m?.[0]).toLowerCase().includes("error"));
+    return {
+      jobId,
+      provider:"comfyui",
+      status: failed ? "failed" : history.status?.completed ? "completed" : "running",
+      outputs: outputUrls(history)
+    };
   }
 };
