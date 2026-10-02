@@ -58,7 +58,17 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setImages(data.outputs ?? []);
+      if (data.status === "queued" || data.status === "running") {
+        for (let attempt = 0; attempt < 60; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          const statusRes = await fetch("/api/generate/status?jobId=" + encodeURIComponent(data.jobId), { cache: "no-store" });
+          const status = await statusRes.json();
+          if (status.status === "completed") { setImages(status.outputs ?? []); break; }
+          if (status.status === "failed") throw new Error("ComfyUI generation failed");
+        }
+      } else {
+        setImages(data.outputs ?? []);
+      }
     } catch (e) {
       alert(e instanceof Error ? e.message : "Generation failed");
     } finally { setLoading(false); }
