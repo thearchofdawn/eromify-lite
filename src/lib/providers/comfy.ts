@@ -17,6 +17,11 @@ function patchWorkflow(workflow: ApiWorkflow, input: GenerateInput): ApiWorkflow
   );
   if (encoders[0]) encoders[0].inputs.text = input.prompt;
 
+  const referenceNodeId = process.env.COMFYUI_REFERENCE_NODE_ID;
+  if (referenceNodeId && input.referenceImageName && cloned[referenceNodeId]) {
+    cloned[referenceNodeId].inputs.image = input.referenceImageName;
+  }
+
   const sizes: Record<string, number[]> = {"1:1":[768,768],"4:5":[768,960],"9:16":[768,1344],"16:9":[1024,576]};
   const size = sizes[input.aspectRatio];
   const latent = Object.values(cloned).find(n =>
