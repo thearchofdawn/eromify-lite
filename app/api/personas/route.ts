@@ -4,7 +4,7 @@ import { createClient } from "@/src/lib/supabase/server";
 export async function GET() {
   const supabase = await createClient();
   const { data: claims } = await supabase.auth.getClaims();
-  if (!claims?.claims?.sub) return NextResponse.json({ personas: [] });
+  if (!claims?.claims?.sub) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   const { data, error } = await supabase.from("personas").select("*").order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ personas: data ?? [] });
