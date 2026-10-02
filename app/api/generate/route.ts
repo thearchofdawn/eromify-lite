@@ -28,6 +28,7 @@ export async function POST(request: Request) {
     let userId: string | null = null;
     let supabase: any = null;
     let referenceImageName: string | undefined;
+    let referenceImageUrl: string | undefined;
 
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
       supabase = await createClient();
@@ -46,7 +47,15 @@ export async function POST(request: Request) {
         referenceImagePath: data.reference_image_path
       };
 
-      referenceImageName = await prepareReferenceImage(supabase, userId, persona.referenceImagePath);
+      if ((process.env.IMAGE_PROVIDER || "gemini").toLowerCase() === "comfy") {
+        referenceImageName = await prepareReferenceImage(supabase, userId, persona.referenceImagePath);
+      } else if (persona.referenceImagePath) {
+        const { data: signed, error: signedError } = await supabase.storage
+          .from("references")
+          .createSignedUrl(persona.referenceImagePath, 300);
+        if (signedError) throw new Error(signedError.message);
+        referenceImageUrl = signed?.signedUrl;
+      }
     }
 
     if (!persona) return NextResponse.json({ error: "Persona not found" }, { status: 400 });
@@ -56,7 +65,8 @@ export async function POST(request: Request) {
       prompt: `${persona.visualProfile}. ${String(input.prompt || "").trim()}`,
       aspectRatio: input.aspectRatio,
       count: Math.min(Math.max(Number(input.count) || 1, 1), 8),
-      referenceImageName
+      referenceImageName,
+      referenceImageUrl
     };
 
     const result = await generateImage(enriched);
