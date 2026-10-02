@@ -1,7 +1,25 @@
 import { NextResponse } from "next/server";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { generateImage } from "@/src/lib/providers";
 import { personas as demoPersonas } from "@/src/lib/demo-data";
 import { createClient } from "@/src/lib/supabase/server";
+
+export const runtime = "nodejs";
+
+async function prepareReferenceImage(supabase: any, userId: string, storagePath: string | null) {
+  const inputDir = process.env.COMFYUI_INPUT_DIR;
+  if (!inputDir || !storagePath) return undefined;
+
+  const { data, error } = await supabase.storage.from("references").download(storagePath);
+  if (error || !data) throw new Error(error?.message || "Unable to download persona reference");
+
+  const ext = path.extname(storagePath) || ".jpg";
+  const fileName = "eromify-" + crypto.randomUUID() + ext;
+  await mkdir(inputDir, { recursive: true });
+  await writeFile(path.join(inputDir, fileName), Buffer.from(await data.arrayBuffer()));
+  return fileName;
+}
 
 export async function POST(request: Request) {
   try {
@@ -9,6 +27,7 @@ export async function POST(request: Request) {
     let persona: any = demoPersonas.find(p => p.id === input.personaId);
     let userId: string | null = null;
     let supabase: any = null;
+    let referenceImageName: string | undefined;
 
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
       supabase = await createClient();
@@ -16,8 +35,9 @@ export async function POST(request: Request) {
       userId = claims?.claims?.sub ?? null;
       if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
-      const { data, error } = await supabase.from("personas").select("*").eq("id", input.personaId).single();
+      const { data, error } = await supabase.from("personas").select("*").eq("id", input.personaId).eq("user_id", userId).single();
       if (error || !data) return NextResponse.json({ error: "Persona not found" }, { status: 400 });
+
       persona = {
         id: data.id,
         name: data.name,
@@ -25,6 +45,8 @@ export async function POST(request: Request) {
         visualProfile: data.visual_profile,
         referenceImagePath: data.reference_image_path
       };
+
+      referenceImageName = await prepareReferenceImage(supabase, userId, persona.referenceImagePath);
     }
 
     if (!persona) return NextResponse.json({ error: "Persona not found" }, { status: 400 });
@@ -33,7 +55,8 @@ export async function POST(request: Request) {
       personaId: persona.id,
       prompt: `${persona.visualProfile}. ${String(input.prompt || "").trim()}`,
       aspectRatio: input.aspectRatio,
-      count: Math.min(Math.max(Number(input.count) || 1, 1), 8)
+      count: Math.min(Math.max(Number(input.count) || 1, 1), 8),
+      referenceImageName
     };
 
     const result = await generateImage(enriched);
