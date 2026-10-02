@@ -14,6 +14,7 @@ export type GenerateInput = {
   aspectRatio: "1:1" | "4:5" | "9:16" | "16:9";
   count: number;
   referenceImageName?: string;
+  referenceImageUrl?: string;
 };
 
 export type GenerateResult = {
